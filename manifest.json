@@ -1,0 +1,51 @@
+{
+  "name": "Nostr Map Signer",
+  "version": "0.1.0",
+  "description": "Extension Nostr francophone pour signer en NIP-07 et connecter son wallet Lightning via NWC.",
+  "manifest_version": 3,
+  "permissions": ["storage", "tabs", "activeTab", "alarms"],
+  "host_permissions": ["<all_urls>", "ws://*/*", "wss://*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_title": "Nostr Map Signer",
+    "default_popup": "popup/popup.html",
+    "default_area": "navbar",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["page-bridge.js", "confirm/*", "zap/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "commands": {
+    "_execute_browser_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+N"
+      },
+      "description": "Ouvrir Nostr Map Signer"
+    }
+  }
+}

@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Nostr Map Signer</title>
+  <link rel="stylesheet" href="options.css"/>
+</head>
+<body>
+
+<main class="page">
+
+  <!-- ══ HERO ══ -->
+  <section class="hero">
+    <div class="hero-logo">
+      <span class="logo-brand">Nostr Map ✦</span><span class="logo-ext"> Signer</span>
+    </div>
+    <h1 class="hero-title">Votre extension de connexion Nostr</h1>
+    <p class="hero-sub">Gérez votre identité Nostr sur toutes les plateformes et connectez votre portefeuille pour zapper.</p>
+    <a href="https://nostrmap.fr" target="_blank" rel="noreferrer" class="btn-site">
+      Visiter nostrmap.fr
+    </a>
+    <a href="https://nostrmap.fr/privacy-nostr-map-extension" target="_blank" rel="noreferrer" class="hero-privacy">
+      Politique de confidentialité
+    </a>
+  </section>
+
+  <div id="banner" class="banner hidden"></div>
+
+  <!-- ══ SETUP ══ -->
+  <section id="view-setup" class="hidden">
+    <div class="card setup-card">
+      <div class="card-head">
+        <div>
+          <h2>Premier lancement</h2>
+          <p class="card-sub">Importez votre clé Nostr — elle ne quittera jamais ce navigateur.</p>
+        </div>
+      </div>
+
+      <form id="form-setup" novalidate>
+
+        <!-- Zone 1 : inputs principaux -->
+        <div class="setup-cols">
+          <div class="setup-col">
+            <div class="field-group">
+              <div class="field-label-row">
+                <label for="s-key">Clé privée Nostr</label>
+                <button type="button" class="btn-info" data-tip="Votre clé privée (nsec1… ou hex 64 chars). Elle est chiffrée localement avec AES-256-GCM et n'est jamais envoyée nulle part.">ⓘ</button>
+              </div>
+              <div class="input-wrap">
+                <input id="s-key" type="password" class="input" placeholder="nsec1… ou 64 caractères hex" autocomplete="off" required/>
+                <button class="btn-eye" type="button" data-target="s-key">👁</button>
+              </div>
+            </div>
+          </div>
+          <div class="setup-col">
+            <div class="field-group">
+              <div class="field-label-row">
+                <label for="s-nwc">Wallet Lightning <span class="label-opt">optionnel</span></label>
+                <button type="button" class="btn-info" data-tip="Connectez votre wallet via NWC pour zapper. Votre URI est chiffrée localement, jamais envoyée.">ⓘ</button>
+                <button type="button" class="btn-nwc-help" id="btn-nwc-help-setup">Comment obtenir mon URI ?</button>
+              </div>
+              <textarea id="s-nwc" class="input textarea" rows="3" placeholder="nostr+walletconnect://…"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Zone 2 : protection du coffre -->
+        <div class="setup-section">
+          <div class="field-label-row">
+            <label>Protection du coffre</label>
+          </div>
+          <div class="auth-mode-toggle">
+            <label class="auth-mode-opt">
+              <input type="radio" name="s-auth-mode" value="pin" checked/>
+              <div>
+                <strong>PIN 6 chiffres</strong>
+                <p>Rapide à saisir. Vulnérable si votre profil navigateur est volé et attaqué hors ligne.</p>
+              </div>
+            </label>
+            <label class="auth-mode-opt">
+              <input type="radio" name="s-auth-mode" value="passphrase"/>
+              <div>
+                <strong>Passphrase longue</strong>
+                <p>Résiste au brute-force hors ligne. Recommandé si vous stockez des fonds importants.</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Zone 3 : saisie PIN ou passphrase -->
+        <div class="setup-auth-zone">
+
+          <!-- PIN pad -->
+          <div id="setup-pin-field">
+            <div id="setup-pin-zone" class="pin-zone">
+              <div class="pin-step" id="pin-step-enter">
+                <p class="pin-instruction">Choisissez votre code PIN</p>
+                <div class="pin-display" id="pin-dots-enter"></div>
+                <div class="pin-pad" id="pin-pad-enter"></div>
+              </div>
+              <div class="pin-step hidden" id="pin-step-confirm">
+                <p class="pin-instruction">Confirmez votre code PIN</p>
+                <div class="pin-display" id="pin-dots-confirm"></div>
+                <div class="pin-pad" id="pin-pad-confirm"></div>
+              </div>
+              <div class="pin-step hidden" id="pin-step-ok">
+                <div class="pin-ok">✓ Code PIN défini</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Passphrase -->
+          <div class="hidden setup-passphrase-wrap" id="setup-passphrase-field">
+            <div class="passphrase-fields">
+              <div class="field-group">
+                <div class="field-label-row">
+                  <label for="s-passphrase">Passphrase</label>
+                </div>
+                <div class="input-wrap">
+                  <input id="s-passphrase" type="password" class="input" placeholder="16 car. min · 1 maj · 1 min · 1 chiffre/symbole" autocomplete="new-password"/>
+                  <button class="btn-eye" type="button" data-target="s-passphrase">👁</button>
+                </div>
+                <div id="s-passphrase-strength" class="passphrase-strength"></div>
+              </div>
+              <div class="field-group">
+                <div class="field-label-row">
+                  <label for="s-passphrase-confirm">Confirmer la passphrase</label>
+                </div>
+                <div class="input-wrap">
+                  <input id="s-passphrase-confirm" type="password" class="input" placeholder="Répétez la passphrase" autocomplete="new-password"/>
+                  <button class="btn-eye" type="button" data-target="s-passphrase-confirm">👁</button>
+                </div>
+                <div id="s-passphrase-confirm-msg" class="passphrase-strength"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Zone 4 : sécurité + validation -->
+        <div class="setup-footer">
+          <div class="security-note">
+            <div class="security-note-icon">🔐</div>
+            <div>
+              <strong>Vos données restent sur votre appareil</strong>
+              <p>Clé privée et URI NWC sont chiffrées avec AES-256-GCM, protégées par votre code. Aucune donnée n'est envoyée à des serveurs externes.</p>
+            </div>
+          </div>
+          <button type="submit" id="btn-setup" class="btn-primary" disabled>Valider →</button>
+        </div>
+
+      </form>
+    </div>
+  </section>
+
+  <!-- ══ LOCKED ══ -->
+  <section id="view-locked" class="hidden">
+    <div class="card card-center">
+      <div class="lock-icon">🔒</div>
+      <h2>Session verrouillée</h2>
+      <p id="options-lock-subtitle">Entrez votre code PIN pour reprendre</p>
+      <!-- PIN pad -->
+      <div id="options-unlock-pin-wrap">
+        <div class="pin-display" id="pin-dots-unlock"></div>
+        <div class="pin-pad" id="pin-pad-unlock"></div>
+      </div>
+      <!-- Passphrase -->
+      <div id="options-unlock-passphrase-wrap" class="hidden" style="width:100%">
+        <form id="options-form-unlock-passphrase" novalidate style="display:flex;flex-direction:column;gap:10px">
+          <div class="input-wrap">
+            <input id="options-unlock-passphrase" type="password" class="input" placeholder="Entrez votre passphrase" autocomplete="off" spellcheck="false"/>
+            <button class="btn-eye" type="button" data-target="options-unlock-passphrase">👁</button>
+          </div>
+          <button type="submit" class="btn-primary full">Déverrouiller</button>
+        </form>
+      </div>
+      <button type="button" id="btn-reset-from-lock-options" class="btn-reset-lock" style="margin-top:16px">Mot de passe oublié · Réinitialiser</button>
+    </div>
+  </section>
+
+  <!-- ══ UNLOCKED ══ -->
+  <section id="view-unlocked" class="hidden">
+    <div class="cards-grid">
+
+      <!-- Identité -->
+      <div class="card">
+        <div class="card-head">
+          <h2>Identité Nostr</h2>
+          <button id="btn-lock" class="btn-sm-danger" type="button">Verrouiller</button>
+        </div>
+        <div class="id-row">
+          <div class="id-avatar" id="id-avatar-wrap">
+            <img id="profile-pic" class="hidden" alt=""/>
+            <span id="profile-fallback">✦</span>
+          </div>
+          <div>
+            <div id="profile-name" class="id-name hidden"></div>
+            <div id="npub-short" class="id-npub">npub1…</div>
+            <div id="profile-nip05" class="id-sub hidden"></div>
+            <div id="profile-sub" class="id-sub">Identité active</div>
+          </div>
+        </div>
+        <div class="info-block">
+          <div class="info-label">Clé publique (npub)</div>
+          <div id="npub-full" class="info-val mono">npub1…</div>
+        </div>
+        <button id="btn-edit-key" class="btn-outline full" type="button">Modifier la clé privée</button>
+        <form id="form-edit-key" class="hidden sub-form" novalidate>
+          <div class="input-wrap">
+            <input id="e-key" type="password" class="input" placeholder="nsec1… ou hex" autocomplete="off"/>
+            <button class="btn-eye" type="button" data-target="e-key">👁</button>
+          </div>
+          <div class="btn-row">
+            <button type="submit" class="btn-primary">Enregistrer</button>
+            <button type="button" id="btn-cancel-key" class="btn-ghost">Annuler</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Wallet -->
+      <div class="card">
+        <div class="card-head">
+          <h2>Wallet Lightning</h2>
+          <button id="btn-refresh-bal" class="btn-sm-ghost" type="button">↻ Actualiser</button>
+        </div>
+        <div id="balance-row" class="balance-row hidden">
+          <span>⚡</span>
+          <strong id="balance-val">0 sats</strong>
+        </div>
+        <div class="info-block">
+          <div class="info-label">URI NWC</div>
+          <div id="nwc-display" class="info-val mono">Non configuré</div>
+        </div>
+        <div class="nwc-actions">
+          <button id="btn-edit-nwc" class="btn-outline full" type="button">Modifier l'URI NWC</button>
+          <button type="button" class="btn-ghost-sm" id="btn-nwc-help-edit">Comment obtenir mon URI ?</button>
+        </div>
+        <form id="form-edit-nwc" class="hidden sub-form" novalidate>
+          <textarea id="e-nwc" class="input textarea" rows="3" placeholder="nostr+walletconnect://… (vide = supprimer)"></textarea>
+          <div class="btn-row">
+            <button type="submit" class="btn-primary">Enregistrer</button>
+            <button type="button" id="btn-cancel-nwc" class="btn-ghost">Annuler</button>
+          </div>
+        </form>
+
+        <!-- ─── Envoyer des sats ─── -->
+        <div id="send-section" class="send-section hidden">
+          <div class="send-divider">⚡ Envoyer des sats</div>
+          <div class="send-row">
+            <div class="field-group" style="flex:2">
+              <label class="field-label-inline">Adresse Lightning</label>
+              <input id="send-address" type="text" class="input" placeholder="satoshi@wallet.com" autocomplete="off" spellcheck="false"/>
+            </div>
+            <div class="field-group" style="flex:1">
+              <label class="field-label-inline">Montant (sats)</label>
+              <input id="send-amount" type="number" class="input" placeholder="100" min="1" step="1"/>
+            </div>
+          </div>
+          <div id="send-preview" class="send-preview hidden">
+            <span>Vous allez envoyer <strong id="send-preview-amount"></strong> à <strong id="send-preview-to"></strong></span>
+          </div>
+          <div id="send-result" class="send-result hidden"></div>
+          <div class="btn-row">
+            <button id="btn-send-resolve" type="button" class="btn-outline">Préparer →</button>
+            <button id="btn-send-confirm" type="button" class="btn-primary hidden">⚡ Confirmer le paiement</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Historique -->
+      <div class="card" id="card-history">
+        <div class="card-head">
+          <h2>Historique des transactions</h2>
+          <button id="btn-refresh-history" class="btn-sm-ghost" type="button">↻ Actualiser</button>
+        </div>
+        <ul id="tx-history-list" class="tx-list">
+          <li class="tx-empty">Aucune transaction pour l'instant.</li>
+        </ul>
+      </div>
+
+      <!-- Sites -->
+      <div class="card">
+        <div class="card-head"><h2>Sites autorisés</h2></div>
+        <p class="card-desc"><code>nostrmap.fr</code> est pré-autorisé par défaut.</p>
+        <ul id="sites-list" class="sites-list"></ul>
+      </div>
+
+      <!-- Effacer -->
+      <div class="card card-danger">
+        <div class="card-head"><h2>Effacer mes données</h2></div>
+        <p class="card-desc">Supprime la clé privée et réinitialise complètement l'extension sur ce navigateur.</p>
+        <button id="reset-vault" class="btn-danger" type="button">Effacer et réinitialiser</button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Tooltip -->
+  <div id="tooltip" class="tooltip hidden"></div>
+
+  <!-- ══ MODAL NWC AIDE ══ -->
+  <div id="modal-nwc" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>Connecter un wallet Lightning pour zapper</h3>
+        <button type="button" class="modal-close" id="btn-modal-close">✕</button>
+      </div>
+
+      <p class="modal-intro">Le <strong>zap</strong> est un pourboire en Bitcoin envoyé via le réseau Lightning. Pour zapper depuis votre navigateur, connectez votre wallet Lightning via <strong>NWC</strong> (Nostr Wallet Connect) — un standard ouvert et sécurisé.</p>
+
+      <div class="modal-security">
+        <span>🔐</span>
+        <p>Votre connexion wallet est <strong>chiffrée localement</strong> avec AES-256-GCM et protégée par votre PIN. Elle n'est jamais envoyée à nos serveurs ni partagée avec les sites que vous visitez.</p>
+      </div>
+
+      <div class="modal-wallets">
+
+        <div class="wallet-item">
+          <div class="wallet-logo wallet-primal">P</div>
+          <div>
+            <div class="wallet-name">Primal</div>
+            <ol class="wallet-steps">
+              <li>Wallet → ⚙ Wallet Settings</li>
+              <li>Défiler jusqu'à <strong>Connected Apps</strong></li>
+              <li>Appuyer sur <strong>Create a new wallet connection</strong></li>
+              <li>Copier l'URI générée</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="wallet-item">
+          <div class="wallet-logo wallet-alby">A</div>
+          <div>
+            <div class="wallet-name">Alby Hub</div>
+            <ol class="wallet-steps">
+              <li>Settings → <strong>Connections</strong></li>
+              <li>Add Connection → choisir un nom</li>
+              <li>Copier l'URI <code>nostr+walletconnect://…</code></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="wallet-item">
+          <div class="wallet-logo wallet-mutiny">M</div>
+          <div>
+            <div class="wallet-name">Mutiny Wallet</div>
+            <ol class="wallet-steps">
+              <li>Settings → <strong>Nostr Wallet Connect</strong></li>
+              <li>New Profile → nommer la connexion</li>
+              <li>Copier l'URI affichée</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="wallet-item">
+          <div class="wallet-logo wallet-phoenix">⚡</div>
+          <div>
+            <div class="wallet-name">Phoenix</div>
+            <ol class="wallet-steps">
+              <li>Paramètres → <strong>Nostr Wallet Connect</strong></li>
+              <li>Activer et copier l'URI</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="wallet-item">
+          <div class="wallet-logo wallet-umbrel">U</div>
+          <div>
+            <div class="wallet-name">Umbrel / LND</div>
+            <ol class="wallet-steps">
+              <li>Installer <strong>Alby Hub</strong> sur Umbrel</li>
+              <li>Suivre les étapes Alby ci-dessus</li>
+            </ol>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="options.js"></script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zap</title>
+    <link rel="stylesheet" href="../popup/popup.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="hero-card">
+        <div class="hero-badge">⚡</div>
+        <div>
+          <h1>Demande de Zap</h1>
+          <p>Paiement via NWC sur relais Nostr uniquement.</p>
+        </div>
+      </header>
+
+      <section class="panel stack-tight">
+        <div>
+          <div class="permission-meta">Destinataire</div>
+          <div id="recipient" class="permission-host">...</div>
+        </div>
+        <div>
+          <div class="permission-meta">Montant</div>
+          <div id="amount" class="permission-host">...</div>
+        </div>
+        <div>
+          <div class="permission-meta">Solde disponible</div>
+          <div id="balance" class="permission-host">...</div>
+        </div>
+        <div id="insufficient-balance-warning" class="hidden" style="color:#f87171;font-size:0.82rem;padding:6px 10px;background:rgba(248,113,113,0.1);border-radius:8px;border:1px solid rgba(248,113,113,0.3);">
+          ⚠️ Solde insuffisant pour ce paiement.
+        </div>
+      </section>
+
+      <section class="panel stack-tight">
+        <button id="approve-zap" class="btn btn-primary" type="button">⚡ Zapper</button>
+        <button id="reject-zap" class="btn btn-outline" type="button">Annuler</button>
+      </section>
+    </main>
+    <script src="zap.js"></script>
+  </body>
+</html>

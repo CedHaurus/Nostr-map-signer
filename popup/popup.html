@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Nostr Map Signer</title>
+  <link rel="stylesheet" href="popup.css"/>
+</head>
+<body>
+
+  <!-- ══ HEADER ══ -->
+  <header class="top-bar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="nm-g" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#8b5cf6"/>
+            <stop offset="100%" stop-color="#06b6d4"/>
+          </linearGradient>
+        </defs>
+        <rect width="32" height="32" rx="8" fill="#13131a"/>
+        <text x="16" y="23" text-anchor="middle" font-size="20" font-family="serif" fill="url(#nm-g)">✦</text>
+      </svg>
+      <span class="brand-text"><span class="grad-text">Nostr Map ✦</span> Signer</span>
+    </div>
+    <button id="btn-lock" class="btn-danger-sm hidden" type="button">Verrouiller</button>
+  </header>
+
+  <!-- ══ BANNER ══ -->
+  <div id="banner" class="banner hidden"></div>
+
+  <!-- ══════════════════════════════════════
+       VUE 1 : PREMIER LANCEMENT
+  ══════════════════════════════════════ -->
+  <section id="view-setup" class="view hidden">
+
+    <div class="onboard-header">
+      <div class="onboard-icon">✦</div>
+      <div>
+        <h2>Connectez votre identité</h2>
+        <p>Votre clé privée est chiffrée localement.<br>Elle ne quitte jamais ce navigateur. <a href="https://nostrmap.fr/privacy-nostr-map-extension" target="_blank" rel="noreferrer" class="link-muted">Politique de confidentialité</a></p>
+      </div>
+    </div>
+
+    <form id="form-setup" class="form-stack" novalidate>
+
+      <div class="field">
+        <label for="s-key">Clé privée Nostr</label>
+        <div class="input-wrap">
+          <input id="s-key" type="password" class="input" placeholder="nsec1… ou 64 hex" autocomplete="off" required/>
+          <button class="btn-eye" type="button" data-target="s-key" tabindex="-1">👁</button>
+        </div>
+        <span class="hint">Format nsec1… (bech32) ou hexadécimal 64 caractères</span>
+      </div>
+
+      <!-- Choix du mode d'authentification -->
+      <div class="field">
+        <label>Protection du coffre</label>
+        <div class="auth-mode-toggle">
+          <label class="auth-mode-opt">
+            <input type="radio" name="s-auth-mode" value="pin" checked/>
+            <span>PIN 6 chiffres</span>
+          </label>
+          <label class="auth-mode-opt">
+            <input type="radio" name="s-auth-mode" value="passphrase"/>
+            <span>Passphrase longue</span>
+          </label>
+        </div>
+        <span class="hint" id="s-auth-hint">Rapide à saisir. Vulnérable si le profil navigateur est volé.</span>
+      </div>
+
+      <div class="field" id="s-pin-field">
+        <label for="s-pass">Code PIN</label>
+        <div id="s-pin-dots" class="pin-display"></div>
+        <div id="s-pin-pad"  class="pin-pad"></div>
+      </div>
+
+      <div class="field hidden" id="s-passphrase-field">
+        <label for="s-pass">Passphrase</label>
+        <div class="input-wrap">
+          <input id="s-pass" type="password" class="input" placeholder="16 car. min · maj · min · chiffre/symbole" autocomplete="new-password"/>
+          <button class="btn-eye" type="button" data-target="s-pass" tabindex="-1">👁</button>
+        </div>
+        <span class="hint">Résiste au brute-force hors ligne. Min 16 car., 1 maj, 1 min, 1 chiffre ou symbole.</span>
+      </div>
+
+      <details class="accordion" id="nwc-details">
+        <summary>
+          <span class="summary-label">⚡ Wallet Lightning</span>
+          <span class="badge-opt">optionnel</span>
+          <span class="chevron">▾</span>
+        </summary>
+        <div class="accordion-body">
+          <div class="field">
+            <label for="s-nwc">URI NWC</label>
+            <textarea id="s-nwc" class="input textarea" rows="3"
+              placeholder="nostr+walletconnect://…"></textarea>
+            <span class="hint">Compatible Alby Hub, Mutiny, Phoenix, LND+NWC, Umbrel…</span>
+          </div>
+        </div>
+      </details>
+
+      <button type="submit" class="btn-primary full">Valider →</button>
+
+    </form>
+  </section>
+
+  <!-- ══════════════════════════════════════
+       VUE 2 : VERROUILLÉ
+  ══════════════════════════════════════ -->
+  <section id="view-locked" class="view hidden">
+    <div class="lock-visual">
+      <div class="lock-ring">🔒</div>
+      <h2>Session verrouillée</h2>
+      <p id="lock-subtitle">Entrez votre code PIN</p>
+    </div>
+    <!-- PIN pad -->
+    <div id="unlock-pin-wrap">
+      <div class="pin-display" id="pin-dots-unlock"></div>
+      <div class="pin-pad"    id="pin-pad-unlock"></div>
+    </div>
+    <!-- Passphrase -->
+    <div id="unlock-passphrase-wrap" class="hidden">
+      <form id="form-unlock-passphrase" class="form-stack" novalidate>
+        <div class="input-wrap">
+          <input id="unlock-passphrase" type="password" class="input" placeholder="Entrez votre passphrase" autocomplete="off" spellcheck="false"/>
+          <button class="btn-eye" type="button" data-target="unlock-passphrase" tabindex="-1">👁</button>
+        </div>
+        <button type="submit" class="btn-primary full">Déverrouiller</button>
+      </form>
+    </div>
+    <button type="button" id="btn-reset-from-lock" class="btn-reset-lock">Mot de passe oublié · Réinitialiser</button>
+  </section>
+
+  <!-- ══════════════════════════════════════
+       VUE 3 : DÉVERROUILLÉ
+  ══════════════════════════════════════ -->
+  <section id="view-unlocked" class="view hidden">
+
+    <!-- Carte identité -->
+    <div class="id-card">
+      <div class="id-avatar">✦</div>
+      <div class="id-info">
+        <div id="npub-short" class="id-npub">npub1…</div>
+        <div class="id-label">Identité Nostr active</div>
+      </div>
+      <button id="btn-copy-npub" class="btn-icon" type="button" title="Copier la npub">⎘</button>
+    </div>
+
+    <!-- Balance lightning -->
+    <div id="balance-row" class="balance-row hidden">
+      <span>⚡</span>
+      <strong id="balance-val" class="balance-val">0 sats</strong>
+      <button id="btn-refresh-bal" class="btn-refresh" type="button" title="Actualiser le solde">↻</button>
+    </div>
+
+    <!-- Onglets -->
+    <nav class="tabs" role="tablist">
+      <button class="tab active" role="tab" data-tab="identity">Identité</button>
+      <button class="tab" role="tab" data-tab="lightning">Lightning</button>
+      <button class="tab" role="tab" data-tab="sites">Sites</button>
+    </nav>
+
+    <!-- ─── Onglet Identité ─── -->
+    <div id="tab-identity" class="tab-panel" role="tabpanel">
+      <div class="info-block">
+        <span class="info-label">Clé publique (npub)</span>
+        <span id="npub-full" class="info-val mono selectable">npub1…</span>
+      </div>
+      <button id="btn-edit-key" class="btn-outline full" type="button">Modifier la clé privée</button>
+      <form id="form-edit-key" class="form-stack hidden" novalidate>
+        <div class="field">
+          <label for="e-key">Nouvelle clé privée</label>
+          <div class="input-wrap">
+            <input id="e-key" type="password" class="input" placeholder="nsec1… ou hex" autocomplete="off"/>
+            <button class="btn-eye" type="button" data-target="e-key" tabindex="-1">👁</button>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button type="submit" class="btn-primary">Enregistrer</button>
+          <button type="button" id="btn-cancel-key" class="btn-ghost">Annuler</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- ─── Onglet Lightning ─── -->
+    <div id="tab-lightning" class="tab-panel hidden" role="tabpanel">
+      <div class="info-block">
+        <span class="info-label">Wallet connecté</span>
+        <span id="nwc-display" class="info-val mono">Non configuré</span>
+      </div>
+      <button id="btn-edit-nwc" class="btn-outline full" type="button">Modifier l'URI NWC</button>
+      <form id="form-edit-nwc" class="form-stack hidden" novalidate>
+        <div class="field">
+          <label for="e-nwc">URI NWC</label>
+          <textarea id="e-nwc" class="input textarea" rows="3"
+            placeholder="nostr+walletconnect://… (vide = supprimer)"></textarea>
+        </div>
+        <div class="btn-row">
+          <button type="submit" class="btn-primary">Enregistrer</button>
+          <button type="button" id="btn-cancel-nwc" class="btn-ghost">Annuler</button>
+        </div>
+      </form>
+
+      <!-- ─── Envoyer des sats ─── -->
+      <div id="send-section" class="ln-section hidden">
+        <div class="ln-section-title">⚡ Envoyer des sats</div>
+        <div class="field">
+          <label for="send-address">Adresse Lightning</label>
+          <input id="send-address" type="text" class="input" placeholder="user@domaine.com" autocomplete="off" spellcheck="false"/>
+        </div>
+        <div class="field">
+          <label for="send-amount">Montant (sats)</label>
+          <input id="send-amount" type="number" class="input" placeholder="100" min="1" step="1"/>
+        </div>
+        <div id="send-preview" class="send-preview hidden">
+          <span>Envoyer <strong id="send-preview-amount"></strong> à <strong id="send-preview-to"></strong></span>
+        </div>
+        <div id="send-result" class="send-result hidden"></div>
+        <div class="btn-row">
+          <button id="btn-send-resolve" type="button" class="btn-outline">Préparer →</button>
+          <button id="btn-send-confirm" type="button" class="btn-primary hidden">⚡ Payer</button>
+        </div>
+      </div>
+
+      <!-- ─── Historique ─── -->
+      <div id="history-section" class="ln-section hidden">
+        <div class="ln-section-title">
+          Historique
+          <button id="btn-refresh-history" class="btn-refresh" type="button" title="Actualiser">↻</button>
+        </div>
+        <ul id="tx-history-list" class="tx-list">
+          <li class="tx-empty">Aucune transaction.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ─── Onglet Sites ─── -->
+    <div id="tab-sites" class="tab-panel hidden" role="tabpanel">
+      <ul id="sites-list" class="sites-list"></ul>
+    </div>
+
+  </section>
+
+  <!-- ══ FOOTER ══ -->
+  <footer class="footer">
+    <button id="btn-open-options" class="footer-opts" type="button">⚙ Paramètres</button>
+    <div class="footer-links">
+      <a href="https://nostrmap.fr" target="_blank" rel="noreferrer">nostrmap.fr ✦</a>
+      <a href="https://nostrmap.fr/privacy-nostr-map-extension" target="_blank" rel="noreferrer" class="footer-privacy">Confidentialité</a>
+    </div>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
