@@ -56,4 +56,4 @@ Aucune donnée collectée. Aucun tracker. La clé privée ne quitte jamais le na
 
 ## Licence
 
-MIT
+GNU General Public License v3.0 — voir [LICENSE](LICENSE)
