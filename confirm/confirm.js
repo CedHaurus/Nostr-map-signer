@@ -48,11 +48,9 @@ async function load() {
     document.getElementById("site-action").textContent = "demande un paiement Lightning";
     document.getElementById("btn-approve").textContent = "⚡ Zapper";
 
-    // Extract amount from kindLabel "⚡ Paiement de X sats"
-    const match = req.kindLabel.match(/[\d\s]+sats/);
-    const amountText = match ? match[0].replace(/\s*sats/, "").trim() : "?";
     document.getElementById("payment-block").classList.remove("hidden");
-    document.getElementById("payment-amount").textContent = parseInt(amountText, 10).toLocaleString("fr-FR");
+    document.getElementById("payment-amount").textContent =
+      req.amountSats != null ? Number(req.amountSats).toLocaleString("fr-FR") : "?";
 
   } else if (req.type === "sign") {
     document.getElementById("site-avatar").textContent = "✍️";

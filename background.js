@@ -764,7 +764,8 @@ async function handleSignRequest(host, origin, eventTemplate, tabId) {
   const prev = signQueue.get(host) || Promise.resolve();
   let resolveSelf;
   const selfDone = new Promise(r => { resolveSelf = r; });
-  signQueue.set(host, prev.then(() => selfDone));
+  const queued = prev.then(() => selfDone);
+  signQueue.set(host, queued);
 
   let decision;
   try {
@@ -772,7 +773,7 @@ async function handleSignRequest(host, origin, eventTemplate, tabId) {
     decision = await runConfirm();
   } finally {
     resolveSelf();
-    if (signQueue.get(host) === prev.then(() => selfDone)) signQueue.delete(host);
+    if (signQueue.get(host) === queued) signQueue.delete(host);
   }
 
   if (!decision.approved) throw new Error("Signature refusee.");
@@ -1137,6 +1138,7 @@ async function confirmAndPayInvoice(host, origin, tabId, invoice, sats) {
     tabId,
     title: "Paiement Lightning",
     kindLabel: `⚡ Paiement de ${satsLabel}`,
+    amountSats: resolvedSats ?? null,
     contentPreview: invoice.slice(0, 60) + "…",
     requestedAt: Date.now(),
     expiresAt: Date.now() + APP.confirmTimeoutMs,
@@ -1336,6 +1338,7 @@ async function handlePageBridge(message, sender) {
       tabId,
       title: "Paiement Keysend",
       kindLabel: `⚡ Keysend de ${satsLabel} sats`,
+      amountSats: Number(amount),
       contentPreview: `Destination : ${String(destination).slice(0, 60)}`,
       requestedAt: Date.now(),
       expiresAt: Date.now() + APP.confirmTimeoutMs,
@@ -1365,6 +1368,7 @@ function getConfirmationPayload(requestId) {
     title: request.title,
     kind: request.kind,
     kindLabel: request.kindLabel,
+    amountSats: request.amountSats ?? null,
     contentPreview: request.contentPreview,
     approveLabel: request.approveLabel,
     rejectLabel: request.rejectLabel,
