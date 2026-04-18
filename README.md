@@ -28,12 +28,24 @@ Compatible avec tous les clients Nostr supportant NIP-07 : Nostr.com, Snort, Cor
 
 ### Manuellement (développement)
 
+**Prérequis :**
+- macOS ou Linux
+- Node.js ≥ 18 (`node --version`)
+- npm ≥ 9 (`npm --version`)
+- bash
+
+**Étapes :**
+
 ```bash
 git clone https://github.com/CedHaurus/Nostr-map-signer.git
 cd Nostr-map-signer
-npm install
-bash build.sh
+npm install        # installe esbuild + nostr-tools + fontsource
+bash build.sh      # génère dist/chrome/ et dist/firefox/
 ```
+
+Le script `build.sh` copie les sources dans `dist/chrome/` et `dist/firefox/` et génère les manifestes spécifiques à chaque navigateur (MV3 pour Chrome, MV2 pour Firefox). Le seul fichier bundlé est `vendor/nostr.bundle.js`, généré par `scripts/generate-icons.mjs` à partir du paquet npm `nostr-tools`.
+
+**Charger l'extension :**
 
 **Chrome** : `chrome://extensions` → Mode développeur → Charger l'extension non empaquetée → `dist/chrome`
 
