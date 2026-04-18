@@ -271,12 +271,22 @@ function renderSites(perms) {
   perms.forEach((p) => {
     const li = document.createElement("li");
     li.className = "site-item";
-    li.innerHTML = `
-      <div>
-        <div class="site-name">${p.host}</div>
-        <div class="site-src">${p.source === "default" ? "Pré-autorisé par défaut" : "Autorisé via prompt"}</div>
-      </div>
-      <button class="btn-revoke" type="button" data-host="${p.host}">Révoquer</button>`;
+    const info = document.createElement("div");
+    const name = document.createElement("div");
+    name.className = "site-name";
+    name.textContent = p.host;
+    const src = document.createElement("div");
+    src.className = "site-src";
+    src.textContent = p.source === "default" ? "Pré-autorisé par défaut" : "Autorisé via prompt";
+    info.appendChild(name);
+    info.appendChild(src);
+    const btn = document.createElement("button");
+    btn.className = "btn-revoke";
+    btn.type = "button";
+    btn.dataset.host = p.host;
+    btn.textContent = "Révoquer";
+    li.appendChild(info);
+    li.appendChild(btn);
     list.appendChild(li);
   });
 }
