@@ -2,6 +2,13 @@
 
 Extension navigateur pour le protocole Nostr — signature NIP-07 et wallet Lightning via NWC.
 
+## Installer l'extension
+
+| Navigateur | Lien |
+|------------|------|
+| Chrome / Edge / Brave / Opera | [Installer depuis le Chrome Web Store](https://chromewebstore.google.com/detail/nostr-map-signer/hceiololfodfnhcaehnfijplkhbepbhd) |
+| Firefox | [Installer depuis Firefox Add-ons](https://addons.mozilla.org/fr/firefox/addon/nostr-map-signer/) |
+
 ## Fonctionnalités
 
 - **NIP-07** — Signe, chiffre et déchiffre des événements Nostr depuis n'importe quel client compatible (`window.nostr`)
@@ -23,8 +30,8 @@ Compatible avec tous les clients Nostr supportant NIP-07 : Nostr.com, Snort, Cor
 ## Installation
 
 ### Depuis les stores
-- Chrome Web Store — *à venir*
-- Firefox Add-ons — *à venir*
+- **Chrome / Edge / Brave / Opera** — [Chrome Web Store](https://chromewebstore.google.com/detail/nostr-map-signer/hceiololfodfnhcaehnfijplkhbepbhd)
+- **Firefox** — [Firefox Add-ons](https://addons.mozilla.org/fr/firefox/addon/nostr-map-signer/)
 
 ### Manuellement (développement)
 
