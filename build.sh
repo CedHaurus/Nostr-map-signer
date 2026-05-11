@@ -90,10 +90,12 @@ fs.writeFileSync(path.join(root, "dist", "firefox", "manifest.json"), JSON.strin
 NODE
 
 VERSION=$(python3 -c "import json,sys; print(json.load(open('$ROOT_DIR/manifest.json'))['version'])")
-rm -f "$DIST_DIR"/nostr-map-signer-firefox-*.zip
+rm -f "$DIST_DIR"/nostr-map-signer-chrome-*.zip "$DIST_DIR"/nostr-map-signer-firefox-*.zip
+(cd "$CHROME_DIR"  && zip -qr "$DIST_DIR/nostr-map-signer-chrome-${VERSION}.zip"  . -x "*.DS_Store")
 (cd "$FIREFOX_DIR" && zip -qr "$DIST_DIR/nostr-map-signer-firefox-${VERSION}.zip" . -x "*.DS_Store")
 
 echo "Build termine :"
 echo "  Chrome  -> $CHROME_DIR"
 echo "  Firefox -> $FIREFOX_DIR"
+echo "  Chrome zip  -> $DIST_DIR/nostr-map-signer-chrome-${VERSION}.zip"
 echo "  Firefox zip -> $DIST_DIR/nostr-map-signer-firefox-${VERSION}.zip"
