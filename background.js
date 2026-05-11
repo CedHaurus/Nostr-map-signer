@@ -756,7 +756,7 @@ async function awaitConfirmation(request) {
 
     if (!injected) {
       try {
-        const createdWindow = await createPopupWindow(confirmUrl, 460, 460);
+        const createdWindow = await createPopupWindow(confirmUrl, 460, 560);
         const pending = pendingConfirmations.get(requestId);
         if (pending) pending.windowId = createdWindow.id;
       } catch (error) {

@@ -52,7 +52,7 @@
     const frame = document.createElement("iframe");
     frame.src = confirmUrl;
     frame.style.cssText = [
-      "width:460px", "height:420px",
+      "width:460px", "height:520px",
       "border:none", "border-radius:20px",
       "box-shadow:0 24px 80px rgba(0,0,0,0.7),0 0 0 1px rgba(255,255,255,0.08)",
       "display:block",
