@@ -4,16 +4,17 @@ if (typeof importScripts === "function") {
 }
 
 const ext = typeof browser !== "undefined" && browser.runtime ? browser : chrome;
+const usesPromiseApi = typeof browser !== "undefined" && ext === browser;
 
 const APP = {
   name: "Nostr Map Signer",
   version: 1,
-  lockTimeoutMs: 2 * 60 * 60 * 1000,
+  lockTimeoutMs: 24 * 60 * 60 * 1000,
   confirmTimeoutMs: 60 * 1000,
   pbkdf2Iterations: 250000,
   defaultSites: {
-    "nostrmap.fr": {
-      host: "nostrmap.fr",
+    "https://nostrmap.fr": {
+      host: "https://nostrmap.fr",
       addedAt: "default",
       source: "default",
     },
@@ -41,6 +42,7 @@ const pendingConfirmations = new Map();
 const pendingZaps = new Map();
 // Deduplication: host -> Promise, évite d'ouvrir plusieurs popups pour le même site
 const pendingHostAuth = new Map();
+const pendingWalletAuth = new Map();
 // Cache session webln : hosts déjà autorisés pour cette session
 const webLnEnabledHosts = new Set();
 // Queue de signature par host : évite les popups simultanées pour les sites non autorisés
@@ -57,10 +59,18 @@ function getActionApi() {
   return ext.action || ext.browserAction || null;
 }
 
-function promisify(call) {
+function apiCall(callbackStyle, promiseStyle) {
+  if (usesPromiseApi) {
+    try {
+      return Promise.resolve(promiseStyle());
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  }
+
   return new Promise((resolve, reject) => {
     try {
-      call((result) => {
+      callbackStyle((result) => {
         const maybeError = ext.runtime && ext.runtime.lastError;
         if (maybeError) {
           reject(new Error(maybeError.message));
@@ -75,23 +85,129 @@ function promisify(call) {
 }
 
 function storageGet(keys) {
-  return promisify((done) => ext.storage.local.get(keys, done));
+  return apiCall(
+    (done) => ext.storage.local.get(keys, done),
+    () => ext.storage.local.get(keys)
+  );
 }
 
 function storageSet(value) {
-  return promisify((done) => ext.storage.local.set(value, done));
+  return apiCall(
+    (done) => ext.storage.local.set(value, done),
+    () => ext.storage.local.set(value)
+  );
 }
 
 function storageRemove(keys) {
-  return promisify((done) => ext.storage.local.remove(keys, done));
+  return apiCall(
+    (done) => ext.storage.local.remove(keys, done),
+    () => ext.storage.local.remove(keys)
+  );
+}
+
+function getSessionStorage() {
+  return (ext.storage && ext.storage.session) || null;
+}
+
+function sessionCall(callbackStyle, promiseStyle, fallbackValue) {
+  const store = getSessionStorage();
+  if (!store) return Promise.resolve(fallbackValue);
+  return apiCall(
+    (done) => callbackStyle(store, done),
+    () => promiseStyle(store)
+  );
+}
+
+function sessionGet(keys) {
+  return sessionCall(
+    (store, done) => store.get(keys, done),
+    (store) => store.get(keys),
+    {}
+  );
+}
+
+function sessionSet(value) {
+  return sessionCall(
+    (store, done) => store.set(value, done),
+    (store) => store.set(value),
+    undefined
+  );
+}
+
+function sessionRemove(keys) {
+  return sessionCall(
+    (store, done) => store.remove(keys, done),
+    (store) => store.remove(keys),
+    undefined
+  );
+}
+
+async function saveSessionState() {
+  if (!getSessionStorage() || !runtimeState.privateKeyHex || !runtimeState.aesKey) return;
+  try {
+    const rawKey = await crypto.subtle.exportKey("raw", runtimeState.aesKey);
+    await sessionSet({
+      nmsSession: {
+        privateKeyHex: runtimeState.privateKeyHex,
+        publicKeyHex: runtimeState.publicKeyHex,
+        nwcUri: runtimeState.nwcUri || "",
+        authMode: runtimeState.authMode || "pin",
+        lastActivityAt: runtimeState.lastActivityAt,
+        vaultSalt: bytesToBase64(runtimeState.vaultSalt),
+        aesKeyRaw: bytesToBase64(new Uint8Array(rawKey)),
+      },
+    });
+  } catch (_) {}
+}
+
+async function restoreSessionState() {
+  try {
+    const data = await sessionGet(["nmsSession"]);
+    const s = data?.nmsSession;
+    if (!s || !s.privateKeyHex || !s.aesKeyRaw) return false;
+
+    if (s.lastActivityAt && Date.now() - s.lastActivityAt > APP.lockTimeoutMs) {
+      await sessionRemove(["nmsSession"]).catch(() => {});
+      return false;
+    }
+
+    const aesKey = await crypto.subtle.importKey(
+      "raw",
+      base64ToBytes(s.aesKeyRaw),
+      { name: "AES-GCM", length: 256 },
+      true,
+      ["encrypt", "decrypt"]
+    );
+
+    runtimeState.privateKeyHex = s.privateKeyHex;
+    runtimeState.publicKeyHex = s.publicKeyHex;
+    runtimeState.nwcUri = s.nwcUri || "";
+    runtimeState.authMode = s.authMode || "pin";
+    runtimeState.lastActivityAt = s.lastActivityAt || Date.now();
+    runtimeState.vaultSalt = base64ToBytes(s.vaultSalt);
+    runtimeState.aesKey = aesKey;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function clearSessionState() {
+  await sessionRemove(["nmsSession"]).catch(() => {});
 }
 
 function windowsCreate(options) {
-  return promisify((done) => ext.windows.create(options, done));
+  return apiCall(
+    (done) => ext.windows.create(options, done),
+    () => ext.windows.create(options)
+  );
 }
 
 function windowsRemove(windowId) {
-  return promisify((done) => ext.windows.remove(windowId, done)).catch(() => undefined);
+  return apiCall(
+    (done) => ext.windows.remove(windowId, done),
+    () => ext.windows.remove(windowId)
+  ).catch(() => undefined);
 }
 
 function bytesToBase64(bytes) {
@@ -147,7 +263,9 @@ function maskNwcUri(uri) {
 
 function getHostFromUrl(url) {
   try {
-    return new URL(url).hostname.toLowerCase();
+    const origin = new URL(url).origin;
+    // new URL().origin vaut "null" (string) pour file:// et les schemes opaques
+    return origin === "null" ? "" : origin.toLowerCase();
   } catch (_error) {
     return "";
   }
@@ -162,9 +280,9 @@ function isHostAuthorized(hostname, permissions, requiredScope = "read") {
   const key = Object.keys(permissions).find((k) => host === normalizeHost(k));
   if (!key) return false;
   if (requiredScope === "read") return true;
-  // "sign" scope: default/pre-authorized sites always pass; user-granted sites need explicit scope
   const entry = permissions[key];
-  return entry.source === "default" || entry.scope === "sign";
+  if (entry.source === "default") return true;
+  return entry.scope === requiredScope;
 }
 
 function eventKindLabel(kind) {
@@ -197,15 +315,12 @@ function eventKindLabel(kind) {
 
 function touchActivity() {
   runtimeState.lastActivityAt = Date.now();
+  saveSessionState().catch(() => {});
 }
 
 function isUnlocked() {
   if (!runtimeState.privateKeyHex || !runtimeState.aesKey) return false;
-  if (Date.now() - runtimeState.lastActivityAt > APP.lockTimeoutMs) {
-    lockVault();
-    return false;
-  }
-  return true;
+  return Date.now() - runtimeState.lastActivityAt <= APP.lockTimeoutMs;
 }
 
 function requireUnlocked() {
@@ -215,7 +330,7 @@ function requireUnlocked() {
   touchActivity();
 }
 
-function lockVault() {
+async function lockVault() {
   runtimeState.privateKeyHex = null;
   runtimeState.publicKeyHex = null;
   runtimeState.aesKey = null;
@@ -229,6 +344,7 @@ function lockVault() {
   };
   webLnEnabledHosts.clear();
   nwcInfoCache.clear();
+  await clearSessionState();
   updateBadge();
 }
 
@@ -256,7 +372,19 @@ async function getSitePermissions() {
   if (!storage.sitePermissions) {
     return ensureDefaultPermissions();
   }
-  return storage.sitePermissions;
+  const perms = storage.sitePermissions;
+  // Migration : clés sans scheme (ancien format hostname-only) → https://hostname
+  let migrated = false;
+  for (const key of Object.keys(perms)) {
+    if (!key.includes("://")) {
+      const newKey = `https://${key}`;
+      perms[newKey] = { ...perms[key], host: newKey };
+      delete perms[key];
+      migrated = true;
+    }
+  }
+  if (migrated) await storageSet({ sitePermissions: perms });
+  return perms;
 }
 
 async function saveSitePermissions(sitePermissions) {
@@ -302,7 +430,7 @@ async function deriveAesKey(password, saltBytes) {
       name: "AES-GCM",
       length: 256,
     },
-    false,
+    true,
     ["encrypt", "decrypt"]
   );
 }
@@ -435,6 +563,7 @@ async function setupVault({ privateKey, password, nwcUri, authMode = "pin" }) {
   await storageSet({ authMode });
   await ensureDefaultPermissions();
   updateBadge();
+  await saveSessionState();
   return getPublicState();
 }
 
@@ -476,6 +605,7 @@ async function unlockVault(password) {
   runtimeState.authMode = data.authMode || "pin";
   touchActivity();
   updateBadge();
+  await saveSessionState();
   return getPublicState();
 }
 
@@ -539,6 +669,7 @@ async function updatePrivateKey(input) {
   // Nouvelle identité → permissions de l'ancienne identité purgées
   await storageRemove(["sitePermissions", "authMode"]);
   await ensureDefaultPermissions();
+  await saveSessionState();
   return getPopupState();
 }
 
@@ -553,6 +684,7 @@ async function updateNwcUri(input) {
   nwcInfoCache.clear();
   touchActivity();
   await persistVault();
+  await saveSessionState();
   return getPopupState();
 }
 
@@ -713,6 +845,40 @@ async function confirmPublicKeyAccess(host, origin, tabId) {
   });
 
   pendingHostAuth.set(host, promise);
+  return promise;
+}
+
+async function confirmWalletAccess(host, origin, tabId) {
+  const permissions = await getSitePermissions();
+  if (isHostAuthorized(host, permissions, "wallet")) return true;
+
+  if (pendingWalletAuth.has(host)) {
+    return pendingWalletAuth.get(host);
+  }
+
+  const promise = awaitConfirmation({
+    type: "wallet",
+    host,
+    origin,
+    tabId,
+    title: "Accès WebLN",
+    kindLabel: "Connexion wallet Lightning",
+    contentPreview: "Ce site demande à activer WebLN pour interagir avec votre wallet Lightning.",
+    requestedAt: Date.now(),
+    expiresAt: Date.now() + APP.confirmTimeoutMs,
+    approveLabel: "Activer",
+    rejectLabel: "Refuser",
+    showAlwaysAllow: true,
+  }).then((decision) => {
+    pendingWalletAuth.delete(host);
+    if (!decision.approved) throw new Error("Accès wallet refusé.");
+    return true;
+  }).catch((err) => {
+    pendingWalletAuth.delete(host);
+    throw err;
+  });
+
+  pendingWalletAuth.set(host, promise);
   return promise;
 }
 
@@ -1278,7 +1444,7 @@ async function handlePageBridge(message, sender) {
     requireUnlocked();
     if (!runtimeState.nwcUri) throw new Error("Aucun wallet Lightning configuré. Ajoutez votre URI NWC dans les paramètres de l'extension.");
     if (!webLnEnabledHosts.has(host)) {
-      await confirmPublicKeyAccess(host, origin, tabId);
+      await confirmWalletAccess(host, origin, tabId);
       webLnEnabledHosts.add(host);
     }
     return { enabled: true };
@@ -1370,6 +1536,7 @@ function getConfirmationPayload(requestId) {
     kindLabel: request.kindLabel,
     amountSats: request.amountSats ?? null,
     contentPreview: request.contentPreview,
+    tags: Array.isArray(request.tags) ? request.tags : [],
     approveLabel: request.approveLabel,
     rejectLabel: request.rejectLabel,
     expiresAt: request.expiresAt,
@@ -1397,8 +1564,7 @@ async function respondToConfirmation(requestId, approved, alwaysAllow) {
   const request = pendingConfirmations.get(requestId);
   if (!request) throw new Error("Demande expiree.");
   if (approved && alwaysAllow && request.host) {
-    // "pubkey" only → read scope; "sign" or payment → full sign scope
-    const scope = request.type === "pubkey" ? "read" : "sign";
+    const scope = request.type === "pubkey" ? "read" : request.type === "wallet" ? "wallet" : "sign";
     await grantSitePermission(request.host, "prompt", scope);
   }
   await request.resolveDecision({
@@ -1450,15 +1616,18 @@ if (ext.windows && ext.windows.onRemoved) {
 
 if (ext.alarms && ext.alarms.onAlarm) {
   ext.alarms.create("vault-timeout-check", { periodInMinutes: 1 });
-  ext.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === "vault-timeout-check" && runtimeState.lastActivityAt && Date.now() - runtimeState.lastActivityAt > APP.lockTimeoutMs) {
-      lockVault();
+  ext.alarms.onAlarm.addListener(async (alarm) => {
+    await sessionReady;
+    if (alarm.name !== "vault-timeout-check") return;
+    if (runtimeState.lastActivityAt && Date.now() - runtimeState.lastActivityAt > APP.lockTimeoutMs) {
+      await lockVault();
     }
   });
 }
 
 ext.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
+    await sessionReady;
     if (!message || typeof message !== "object") throw new Error("Message invalide.");
 
     switch (message.action) {
@@ -1469,7 +1638,7 @@ ext.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case "unlockVault":
         return unlockVault(message.password);
       case "lockVault":
-        lockVault();
+        await lockVault();
         return getPopupState();
       case "updatePrivateKey":
         return updatePrivateKey(message.privateKey);
@@ -1531,7 +1700,7 @@ ext.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return resolveLightningAddress(addr, aSats * 1000);
       }
       case "resetVault":
-        lockVault();
+        await lockVault();
         await storageRemove(["vault", "sitePermissions", "authMode", "txHistory"]);
         return getPopupState();
       default:
@@ -1545,4 +1714,5 @@ ext.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 ensureDefaultPermissions().catch(() => undefined);
-updateBadge();
+const sessionReady = restoreSessionState();
+sessionReady.then(() => updateBadge()).catch(() => updateBadge());

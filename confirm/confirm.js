@@ -32,7 +32,9 @@ async function load() {
 
   // Top bar label
   document.getElementById("bar-title").textContent =
-    req.type === "sign" ? "Demande de signature" : "Accès à la clé publique";
+    req.type === "sign" ? "Demande de signature" :
+    req.type === "wallet" ? "Accès WebLN" :
+    "Accès à la clé publique";
 
   // Site
   document.getElementById("site-domain").textContent = req.host;
@@ -82,6 +84,13 @@ async function load() {
     } else {
       tagsEl.style.display = "none";
     }
+
+  } else if (req.type === "wallet") {
+    document.getElementById("site-avatar").textContent = "⚡";
+    document.getElementById("site-avatar").style.background = "rgba(251,191,36,.15)";
+    document.getElementById("site-avatar").style.borderColor = "rgba(251,191,36,.35)";
+    document.getElementById("site-action").textContent = "demande à activer WebLN";
+    document.getElementById("btn-approve").textContent = "⚡ Activer";
 
   } else {
     document.getElementById("site-avatar").textContent = "🔑";

@@ -81,14 +81,19 @@ const firefoxManifest = {
 };
 
 delete firefoxManifest.host_permissions;
-firefoxManifest.browser_action = { ...firefoxManifest.action };
-delete firefoxManifest.browser_action.default_area; // Chrome-only key
+firefoxManifest.browser_action = { ...firefoxManifest.action }; // default_area est Firefox-only, on le garde
 delete firefoxManifest.action;
+delete chromeManifest.action.default_area; // default_area n'existe pas en MV3 Chrome
 
 fs.writeFileSync(path.join(root, "dist", "chrome", "manifest.json"), JSON.stringify(chromeManifest, null, 2));
 fs.writeFileSync(path.join(root, "dist", "firefox", "manifest.json"), JSON.stringify(firefoxManifest, null, 2));
 NODE
 
+VERSION=$(python3 -c "import json,sys; print(json.load(open('$ROOT_DIR/manifest.json'))['version'])")
+rm -f "$DIST_DIR"/nostr-map-signer-firefox-*.zip
+(cd "$FIREFOX_DIR" && zip -qr "$DIST_DIR/nostr-map-signer-firefox-${VERSION}.zip" . -x "*.DS_Store")
+
 echo "Build termine :"
 echo "  Chrome  -> $CHROME_DIR"
 echo "  Firefox -> $FIREFOX_DIR"
+echo "  Firefox zip -> $DIST_DIR/nostr-map-signer-firefox-${VERSION}.zip"
