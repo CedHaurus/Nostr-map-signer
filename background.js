@@ -281,7 +281,10 @@ function isHostAuthorized(hostname, permissions, requiredScope = "read") {
   if (!key) return false;
   if (requiredScope === "read") return true;
   const entry = permissions[key];
-  if (entry.source === "default") return true;
+  // Un site pré-autorisé par défaut n'obtient que la lecture de la clé publique :
+  // signer, déchiffrer (NIP-04/44) ou activer WebLN demande toujours une
+  // confirmation. Sans cela, un script injecté dans ce site agissait en silence.
+  if (entry.source === "default") return false;
   return entry.scope === requiredScope;
 }
 
@@ -745,16 +748,10 @@ async function awaitConfirmation(request) {
       },
     });
 
-    // Try inline overlay first, fall back to popup window
-    let injected = false;
-    if (tabId) {
-      try {
-        await ext.tabs.sendMessage(tabId, { action: "injectConfirmation", requestId, confirmUrl });
-        injected = true;
-      } catch (_) {}
-    }
-
-    if (!injected) {
+    // Toujours une fenêtre propre à l'extension : une confirmation insérée
+    // dans la page pouvait être masquée, déplacée ou surveillée par cette page
+    // (détournement de clic sur « Signer », « Zapper », « Faire confiance »).
+    {
       try {
         const createdWindow = await createPopupWindow(confirmUrl, 460, 560);
         const pending = pendingConfirmations.get(requestId);
@@ -1625,10 +1622,20 @@ if (ext.alarms && ext.alarms.onAlarm) {
   });
 }
 
+// Vrai si le message vient d'une page de l'extension (popup, options,
+// fenêtre de confirmation), et non d'un script de contenu exécuté dans un site.
+function isExtensionPageSender(sender) {
+  const base = ext.runtime.getURL("");
+  return Boolean(sender && typeof sender.url === "string" && sender.url.startsWith(base));
+}
+
 ext.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     await sessionReady;
     if (!message || typeof message !== "object") throw new Error("Message invalide.");
+    if (message.action !== "pageBridge" && !isExtensionPageSender(sender)) {
+      throw new Error("Action réservée aux pages de l'extension.");
+    }
 
     switch (message.action) {
       case "getState":

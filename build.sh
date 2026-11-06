@@ -48,7 +48,7 @@ const chromeManifest = {
   },
   web_accessible_resources: [
     {
-      resources: ["page-bridge.js", "confirm/*", "zap/*"],
+      resources: ["page-bridge.js"],
       matches: ["<all_urls>"]
     }
   ]
@@ -67,7 +67,7 @@ const firefoxManifest = {
   background: {
     scripts: ["vendor/nostr.bundle.js", "background.js"]
   },
-  web_accessible_resources: ["page-bridge.js", "confirm/*", "zap/*"],
+  web_accessible_resources: ["page-bridge.js"],
   browser_specific_settings: {
     gecko: {
       id: "nostrmap-signer@nostrmap.fr",

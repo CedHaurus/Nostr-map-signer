@@ -22,6 +22,7 @@ async function loadZap() {
 
   if (request.insufficientBalance) {
     document.getElementById("insufficient-balance-warning").classList.remove("hidden");
+    zapBlocked = true;
     document.getElementById("approve-zap").disabled = true;
     document.getElementById("approve-zap").style.opacity = "0.5";
     document.getElementById("approve-zap").title = "Solde insuffisant";
@@ -40,5 +41,20 @@ document.getElementById("reject-zap").addEventListener("click", async () => {
     window.close();
   }
 });
+
+// Anti détournement de clic : bouton inactif un court instant après
+// l'affichage et après chaque retour du focus sur la fenêtre.
+const ACTIVATION_DELAY_MS = 800;
+const approveZapBtn = document.getElementById("approve-zap");
+let armTimer = null;
+let zapBlocked = false;
+function armApprove() {
+  approveZapBtn.disabled = true;
+  clearTimeout(armTimer);
+  armTimer = setTimeout(() => { if (!zapBlocked) approveZapBtn.disabled = false; }, ACTIVATION_DELAY_MS);
+}
+window.addEventListener("focus", armApprove);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) armApprove(); });
+armApprove();
 
 loadZap().catch(() => window.close());

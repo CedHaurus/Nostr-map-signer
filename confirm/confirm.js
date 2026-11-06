@@ -121,4 +121,18 @@ document.getElementById("btn-reject").addEventListener("click", async () => {
   window.close();
 });
 
+// Anti détournement de clic : le bouton d'approbation reste inactif un court
+// instant après l'affichage et après chaque retour du focus sur la fenêtre.
+const ACTIVATION_DELAY_MS = 800;
+const approveBtn = document.getElementById("btn-approve");
+let armTimer = null;
+function armApprove() {
+  approveBtn.disabled = true;
+  clearTimeout(armTimer);
+  armTimer = setTimeout(() => { approveBtn.disabled = false; }, ACTIVATION_DELAY_MS);
+}
+window.addEventListener("focus", armApprove);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) armApprove(); });
+armApprove();
+
 load().catch(() => window.close());

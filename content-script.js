@@ -29,45 +29,4 @@
     }
   });
 
-  // ── Confirmation overlay ──────────────────────
-  const OVERLAY_ID = "__nostr_map_signer_overlay__";
-
-  function removeOverlay() {
-    const el = document.getElementById(OVERLAY_ID);
-    if (el) el.remove();
-  }
-
-  function showOverlay(confirmUrl) {
-    removeOverlay();
-
-    const overlay = document.createElement("div");
-    overlay.id = OVERLAY_ID;
-    overlay.style.cssText = [
-      "position:fixed", "inset:0", "z-index:2147483647",
-      "background:rgba(0,0,0,0.55)", "backdrop-filter:blur(5px)",
-      "-webkit-backdrop-filter:blur(5px)",
-      "display:flex", "align-items:center", "justify-content:center",
-    ].join(";");
-
-    const frame = document.createElement("iframe");
-    frame.src = confirmUrl;
-    frame.style.cssText = [
-      "width:460px", "height:520px",
-      "border:none", "border-radius:20px",
-      "box-shadow:0 24px 80px rgba(0,0,0,0.7),0 0 0 1px rgba(255,255,255,0.08)",
-      "display:block",
-    ].join(";");
-    frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
-
-    overlay.appendChild(frame);
-    document.documentElement.appendChild(overlay);
-  }
-
-  ext.runtime.onMessage.addListener((msg) => {
-    if (msg.action === "injectConfirmation") {
-      showOverlay(msg.confirmUrl);
-    } else if (msg.action === "closeConfirmation") {
-      removeOverlay();
-    }
-  });
 })();
